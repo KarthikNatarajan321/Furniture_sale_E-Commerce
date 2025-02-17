@@ -1,6 +1,7 @@
 // App.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 // Mock data for products
 const mockProducts = [
@@ -8,22 +9,43 @@ const mockProducts = [
     _id: '1',
     name: 'Modern Sofa',
     price: 999.99,
-    imageUrl: '/api/placeholder/400/300',
+    imageUrl: 'https://dukaan.b-cdn.net/700x700/webp/upload_file_service/b9ad04a1-66fd-4bb8-b82c-7521d140a2ad/e6a259e677860331e4474bd616f1fccf.webp',
     description: 'A comfortable modern sofa perfect for any living room.'
   },
   {
     _id: '2',
     name: 'Dining Table',
     price: 599.99,
-    imageUrl: '/api/placeholder/400/300',
+    imageUrl: 'https://rukminim2.flixcart.com/image/850/1000/k47cgi80/dining-set/f/g/k/8-seater-brown-rosewood-sheesham-hhfk-17-hariom-handicraft-original-imafn66rskcnv96g.jpeg?q=90&crop=false',
     description: 'Elegant dining table that seats 6 people.'
   },
   {
     _id: '3',
     name: 'Bed Frame',
     price: 799.99,
-    imageUrl: '/api/placeholder/400/300',
+    imageUrl: 'https://www.nilkamalsleep.com/cdn/shop/files/1_61f9365a-c5b3-4b95-a64a-69b40203187c_650x.jpg?v=1724666320',
     description: 'Queen size bed frame with headboard.'
+  },
+  {
+    _id: '4',
+    name: 'Wooden bench',
+    price: 1999.99,
+    imageUrl: 'https://images.woodenstreet.de/image/data/benches/cambrey-bench-with-back-rest/revised/honey-finish/updated/new-logo/1.jpg',
+    description: 'Comfort cushion bench with sleek design.'
+  },
+  {
+    _id: '5',
+    name: 'Sheesham Wooden Table',
+    price: 3199.99,
+    imageUrl: 'https://thetimberguy.com/cdn/shop/collections/sheesham_wood_furniture_online_suppliers_manufactureres_exporters_from_india_2048x.jpg?v=1565437409',
+    description: '4 Seater with a beautiful designed table.'
+  },
+  {
+    _id: '6',
+    name: 'Burma Wood Cot',
+    price: 4199.99,
+    imageUrl: 'https://www.ediy.in/beds/images/burma/Burma-size-001.jpg',
+    description: 'Comfort cot where a King size mattress can be used.'
   }
 ];
 
@@ -34,6 +56,7 @@ const Header = () => (
     <nav>
       <Link to="/cart" className="mx-2">Cart</Link>
       <Link to="/login" className="mx-2">Login</Link>
+      <Link to="/register" className="mx-2">Register</Link>
     </nav>
   </header>
 );
@@ -92,13 +115,58 @@ const ProductDetails = () => {
 };
 
 // Cart Page
-const Cart = () => (
-  <div className="container mx-auto p-4">
-    <h1 className="text-3xl mb-4">Your Cart</h1>
-    <p>Your cart is currently empty.</p>
-    <Link to="/" className="text-blue-500 hover:underline">Go Shopping</Link>
-  </div>
-);
+const Cart = () => {
+  const [cart, setCart] = React.useState([]);
+  const userId = localStorage.getItem('userId');
+
+  // 🔹 Fetch User's Cart
+  useEffect(() => {
+    axios.get(`http://localhost:5000/api/cart/${userId}`)
+      .then(response => setCart(response.data.items))
+      .catch(error => console.error("Error fetching cart:", error));
+  }, []);
+
+  // 🔹 Add Item to Cart
+  const addToCart = (product) => {
+    axios.post("http://localhost:5000/api/cart", { userId, ...product})
+      .then(response => setCart(response.data.items))
+      .catch(error => console.error("Error adding to cart:", error));
+  };
+
+  // 🔹 Remove Item from Cart
+  const removeFromCart = (productId) => {
+    axios.delete(`http://localhost:5000/api/cart/${userId}/${productId}`)
+      .then(response => setCart(response.data.items))
+      .catch(error => console.error("Error removing item:", error));
+  };
+
+  return (
+    <div className="p-6">
+      <h2 className="text-2xl font-bold">Your Cart</h2>
+      {cart.length === 0 ? (
+        <p>Your cart is empty.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4">
+          {cart.map((item) => (
+            <div key={item.productId} className="flex justify-between p-4 border rounded">
+              <div>
+                <h3 className="text-lg font-bold">{item.name}</h3>
+                <p>${item.price} x {item.quantity}</p>
+              </div>
+              <button
+                className="bg-red-500 text-white px-3 py-1 rounded"
+                onClick={() => removeFromCart(item.productId)}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 // Login Page
 const Login = () => {
@@ -106,11 +174,25 @@ const Login = () => {
   const [password, setPassword] = React.useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Login attempt:', { email, password });
-    // Simulate successful login
-    navigate('/');
+    try{
+      const response = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+      if (response.data.flag === "0") {
+        console.log('User not found');
+        alert('User not found');
+      } else if (response.data.flag === "1") {
+        alert('Invalid credentials');
+      } else {
+        localStorage.setItem('token', response.data.token);
+        alert('Login successful');
+        navigate('/');
+      }
+      console.log('Login response:', response.data);
+
+    } catch (error) {
+      console.error('Login error:', error);
+    }
   };
 
   return (
@@ -128,7 +210,15 @@ const Login = () => {
         <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded">Login</button>
       </form>
       <p className="mt-4">New customer? <Link to="/register" className="text-blue-500 hover:underline">Register</Link></p>
+      {/* breadcrumb for successful  */}
+      <div class="flex items-center space-x-2 bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-md">
+        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span class="font-medium">Login successful!</span>
+      </div>
     </div>
+    
   );
 };
 
@@ -139,12 +229,16 @@ const Register = () => {
   const [password, setPassword] = React.useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Register attempt:', { name, email, password });
-    // Simulate successful registration
-    navigate('/');
-  };
+    try {
+      const response = await axios.post('http://localhost:5000/api/auth/register', { name, email, password });
+      console.log('Registration response:', response.data);
+    navigate('/login');
+  } catch (error) {
+    console.error('Registration error:', error);
+  }
+};
 
   return (
     <div className="container mx-auto p-4 max-w-md">
