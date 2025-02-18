@@ -3,63 +3,35 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// Mock data for products
-const mockProducts = [
-  {
-    _id: '1',
-    name: 'Modern Sofa',
-    price: 999.99,
-    imageUrl: 'https://dukaan.b-cdn.net/700x700/webp/upload_file_service/b9ad04a1-66fd-4bb8-b82c-7521d140a2ad/e6a259e677860331e4474bd616f1fccf.webp',
-    description: 'A comfortable modern sofa perfect for any living room.'
-  },
-  {
-    _id: '2',
-    name: 'Dining Table',
-    price: 599.99,
-    imageUrl: 'https://rukminim2.flixcart.com/image/850/1000/k47cgi80/dining-set/f/g/k/8-seater-brown-rosewood-sheesham-hhfk-17-hariom-handicraft-original-imafn66rskcnv96g.jpeg?q=90&crop=false',
-    description: 'Elegant dining table that seats 6 people.'
-  },
-  {
-    _id: '3',
-    name: 'Bed Frame',
-    price: 799.99,
-    imageUrl: 'https://www.nilkamalsleep.com/cdn/shop/files/1_61f9365a-c5b3-4b95-a64a-69b40203187c_650x.jpg?v=1724666320',
-    description: 'Queen size bed frame with headboard.'
-  },
-  {
-    _id: '4',
-    name: 'Wooden bench',
-    price: 1999.99,
-    imageUrl: 'https://images.woodenstreet.de/image/data/benches/cambrey-bench-with-back-rest/revised/honey-finish/updated/new-logo/1.jpg',
-    description: 'Comfort cushion bench with sleek design.'
-  },
-  {
-    _id: '5',
-    name: 'Sheesham Wooden Table',
-    price: 3199.99,
-    imageUrl: 'https://thetimberguy.com/cdn/shop/collections/sheesham_wood_furniture_online_suppliers_manufactureres_exporters_from_india_2048x.jpg?v=1565437409',
-    description: '4 Seater with a beautiful designed table.'
-  },
-  {
-    _id: '6',
-    name: 'Burma Wood Cot',
-    price: 4199.99,
-    imageUrl: 'https://www.ediy.in/beds/images/burma/Burma-size-001.jpg',
-    description: 'Comfort cot where a King size mattress can be used.'
-  }
-];
 
 // Header Component
-const Header = () => (
+const Header = () => {
+  const navigate = useNavigate();
+  const userId = localStorage.getItem('userId');
+
+  return(
   <header className="bg-gray-800 text-white p-4 flex justify-between items-center">
     <Link to="/" className="text-2xl font-bold">Furniture Store</Link>
     <nav>
-      <Link to="/cart" className="mx-2">Cart</Link>
+    <button
+  onClick={() => {
+    if (userId) {
+      navigate(`/cart/${userId}`);
+    } else {
+      alert("Please log in first.");
+      navigate("/login");
+    }
+  }}
+  className="mx-2"
+>
+  Cart
+</button>
       <Link to="/login" className="mx-2">Login</Link>
       <Link to="/register" className="mx-2">Register</Link>
     </nav>
   </header>
-);
+  );
+};
 
 // Footer Component
 const Footer = () => (
@@ -70,11 +42,18 @@ const Footer = () => (
 
 // Home Page
 const Home = () => {
+
+  const [Products, setProducts] = useState([]);
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/products')
+      .then(response => setProducts(response.data))
+      .catch(error => console.error("Error fetching products:", error));
+  }, []);
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl mb-4">Latest Furniture</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {mockProducts.map((product) => (
+        {Products.map((product) => (
           <div key={product._id} className="border rounded shadow p-4">
             <Link to={`/product/${product._id}`}>
               <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover" />
@@ -94,20 +73,48 @@ const Home = () => {
 // Product Details Page
 const ProductDetails = () => {
   const { id } = useParams();
-  const product = mockProducts.find(p => p._id === id);
+  const userId = localStorage.getItem('userId');
+  const [fetchedproduct, setProduct] = useState(null); 
   
-  if (!product) return <p className="p-4">Product not found</p>;
-  
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch(`http://localhost:5000/api/products/${id}`);
+        const data = await response.json();
+        setProduct(data);
+      } catch (error) {
+        console.error("Error fetching product:", error);
+      }
+    };
+    fetchProducts();
+  }, [id]);
+
+  const addToCart = () => {
+    console.log('Adding to cart:', { userId, productId: fetchedproduct._id, quantity: 1 });
+    axios.post("http://localhost:5000/api/cart", {
+      userId,
+      productId: fetchedproduct._id,
+      quantity: 1
+    })
+    .then(response => {
+      console.log('Added to cart:', response.data);
+      alert('Added to cart successfully');
+    })
+      .catch(error => console.error("Error adding to cart:", error));
+  }
+
+  if (!fetchedproduct) return <p className="p-4">Product not found</p>;
+
   return (
     <div className="container mx-auto p-4">
       <Link to="/" className="text-blue-500 hover:underline">Go Back</Link>
       <div className="flex flex-col lg:flex-row mt-4">
-        <img src={product.imageUrl} alt={product.name} className="w-full lg:w-1/2 object-cover" />
+        <img src={fetchedproduct.imageUrl} alt={fetchedproduct.name} className="w-full lg:w-1/2 object-cover" />
         <div className="lg:ml-8 mt-4 lg:mt-0">
-          <h2 className="text-3xl font-bold">{product.name}</h2>
-          <p className="text-xl my-2">${product.price}</p>
-          <p>{product.description}</p>
-          <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded">Add to Cart</button>
+          <h2 className="text-3xl font-bold">{fetchedproduct.name}</h2>
+          <p className="text-xl my-2">${fetchedproduct.price}</p>
+          <p>{fetchedproduct.description}</p>
+          <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded" onClick={addToCart}>Add to Cart</button>
         </div>
       </div>
     </div>
@@ -116,38 +123,62 @@ const ProductDetails = () => {
 
 // Cart Page
 const Cart = () => {
-  const [cart, setCart] = React.useState([]);
+  const [cart, setCart] = React.useState({ items: [] }); // 🔍 Initialize with proper structure
+  const [loading, setLoading] = React.useState(true);    // 🔍 Add loading state
+  const [error, setError] = React.useState(null);        // 🔍 Add error state
   const userId = localStorage.getItem('userId');
 
-  // 🔹 Fetch User's Cart
+  // 🔍 Updated cart fetching with proper error handling
   useEffect(() => {
+    const storedUserId = localStorage.getItem('userId');
+    if (!storedUserId) {
+      setError("Please login to view your cart");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     axios.get(`http://localhost:5000/api/cart/${userId}`)
-      .then(response => setCart(response.data.items))
-      .catch(error => console.error("Error fetching cart:", error));
-  }, []);
+      .then(response => {
+        console.log('Fetched cart:', response.data);
+        setCart(response.data || { items: [] }); // 🔍 Ensure we always have a valid structure
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error("Error fetching cart:", error);
+        setError("Failed to load cart items");
+        setLoading(false);
+      });
+  }, [userId]);
 
-  // 🔹 Add Item to Cart
-  const addToCart = (product) => {
-    axios.post("http://localhost:5000/api/cart", { userId, ...product})
-      .then(response => setCart(response.data.items))
-      .catch(error => console.error("Error adding to cart:", error));
-  };
-
-  // 🔹 Remove Item from Cart
+  // 🔍 Updated remove item function with error handling
   const removeFromCart = (productId) => {
+    if (!userId || !productId) return;
+
+    setLoading(true);
     axios.delete(`http://localhost:5000/api/cart/${userId}/${productId}`)
-      .then(response => setCart(response.data.items))
-      .catch(error => console.error("Error removing item:", error));
+      .then(response => {
+        setCart(response.data || { items: [] });
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error("Error removing item:", error);
+        setError("Failed to remove item");
+        setLoading(false);
+      });
   };
+
+  if (loading) return <div className="p-6">Loading cart...</div>;
+  if (error) return <div className="p-6 text-red-500">{error}</div>;
 
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold">Your Cart</h2>
-      {cart.length === 0 ? (
+      {(!cart?.items || cart.items.length === 0) ? ( // 🔍 Safe access with optional chaining
         <p>Your cart is empty.</p>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {cart.map((item) => (
+          {cart.items.map((item) => (
             <div key={item.productId} className="flex justify-between p-4 border rounded">
               <div>
                 <h3 className="text-lg font-bold">{item.name}</h3>
@@ -163,6 +194,37 @@ const Cart = () => {
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+
+// Checkout Page
+const Checkout = () => {
+  const navigate = useNavigate();
+  const userId = localStorage.getItem('userId');
+  const [cart, setCart] = useState([]);
+  const totalAmount = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+
+  useEffect(() => {
+    axios.get(`http://localhost:5000/api/cart/${userId}`)
+      .then(response => setCart(response.data.items))
+      .catch(error => console.error("Error fetching cart:", error));
+  }, []);
+
+  const handleOrderPlacement = () => {
+    axios.post('http://localhost:5000/api/orders', { userId, items: cart, totalAmount })
+      .then(() => {
+        alert('Order Placed Successfully!');
+        navigate('/');
+      })
+      .catch(error => console.error("Error placing order:", error));
+  };
+
+  return (
+    <div className="p-6 text-center">
+      <h2 className="text-2xl font-bold">Checkout</h2>
+      <button onClick={handleOrderPlacement} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded">Place Order</button>
     </div>
   );
 };
@@ -185,6 +247,7 @@ const Login = () => {
         alert('Invalid credentials');
       } else {
         localStorage.setItem('token', response.data.token);
+        localStorage.setItem('userId', response.data.userId);
         alert('Login successful');
         navigate('/');
       }
@@ -272,7 +335,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/product/:id" element={<ProductDetails />} />
-          <Route path="/cart" element={<Cart />} />
+          <Route path="/cart/:userId" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
         </Routes>
