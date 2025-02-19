@@ -6,48 +6,114 @@ import { useSnackbar , SnackbarProvider, enqueueSnackbar} from 'notistack';
 
 
 // Header Component
+
 const Header = () => {
   const navigate = useNavigate();
-  const userId = localStorage.getItem('userId');
-  const token = localStorage.getItem('token');
+  const userId = localStorage.getItem("userId");
+  const token = localStorage.getItem("token");
   const { enqueueSnackbar } = useSnackbar();
-  
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
     enqueueSnackbar("Logged out successfully", { variant: "success" });
-    navigate('/login');
+    navigate("/login");
   };
 
-
   return (
-    <header className="bg-gray-800 text-white p-4 flex justify-between items-center">
-      <Link to="/" className="text-2xl font-bold">Furniture Store</Link>
-      <nav>
+    <header className="bg-gray-800 text-white p-4 shadow-md">
+      <div className="flex justify-between items-center">
+        <Link to="/" className="text-xl md:text-2xl font-bold tracking-wide">
+          Furniture Store
+        </Link>
+
+        {/* Mobile menu button */}
         <button
-          onClick={() => {
-            if (userId) {
-              navigate(`/cart/${userId}`);
-            } else {
-              enqueueSnackbar("Please log in first.",{variant: 'error'});
-              navigate("/login");
-            }
-          }}
-          className="mx-2"
+          aria-label="Toggle Menu"
+          className="md:hidden focus:outline-none focus:ring-2 focus:ring-gray-500"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
-        Cart
+          <svg
+            className="w-6 h-6 transition-transform transform"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
+            />
+          </svg>
         </button>
-        {token ? (
-          <button onClick={handleLogout} className="mx-2">
-            Logout         
-           </button>
-        ) : (
-          <>
-            <Link to="/login" className="mx-2">Login</Link>
-            <Link to="/register" className="mx-2">Register</Link>
-          </>
-        )}
-      </nav>
+
+        {/* Desktop navigation */}
+        <nav className="hidden md:flex space-x-4">
+          <button
+            onClick={() => {
+              if (userId) {
+                navigate(`/cart/${userId}`);
+              } else {
+                enqueueSnackbar("Please log in first.", { variant: "error" });
+                navigate("/login");
+              }
+            }}
+            className="hover:text-gray-300 transition-colors"
+          >
+            Cart
+          </button>
+          {token ? (
+            <button onClick={handleLogout} className="hover:text-gray-300 transition-colors">
+              Logout
+            </button>
+          ) : (
+            <>
+              <Link to="/login" className="hover:text-gray-300 transition-colors">
+                Login
+              </Link>
+              <Link to="/register" className="hover:text-gray-300 transition-colors">
+                Register
+              </Link>
+            </>
+          )}
+        </nav>
+      </div>
+
+      {/* Mobile navigation */}
+<nav className={`md:hidden mt-4 transition-all duration-300 ${isMenuOpen ? "block opacity-100" : "hidden opacity-0"}`}>
+  <div className="flex flex-col items-center space-y-3 bg-gray-800 p-4 rounded-lg shadow-lg">
+    <button
+      onClick={() => {
+        if (userId) {
+          navigate(`/cart/${userId}`);
+          setIsMenuOpen(false);
+        } else {
+          enqueueSnackbar("Please log in first.", { variant: "error" });
+          navigate("/login");
+        }
+      }}
+      className="w-full text-center py-2 text-white hover:text-gray-300 transition-colors"
+    >
+      🛒 Cart
+    </button>
+    {token ? (
+      <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="w-full text-center py-2 text-white hover:text-gray-300 transition-colors">
+        🚪 Logout
+      </button>
+    ) : (
+      <>
+        <Link to="/login" onClick={() => setIsMenuOpen(false)} className="w-full text-center py-2 text-white hover:text-gray-300 transition-colors">
+          🔑 Login
+        </Link>
+        <Link to="/register" onClick={() => setIsMenuOpen(false)} className="w-full text-center py-2 text-white hover:text-gray-300 transition-colors">
+          ✍️ Register
+        </Link>
+      </>
+    )}
+  </div>
+</nav>
     </header>
   );
 };
@@ -61,40 +127,49 @@ const Footer = () => (
 
 // Home Page
 const Home = () => {
-
   const [Products, setProducts] = useState([]);
+  
   useEffect(() => {
     axios.get('http://localhost:5000/api/products')
       .then(response => setProducts(response.data))
       .catch(error => console.error("Error fetching products:", error));
   }, []);
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl mb-4">Latest Furniture</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="container mx-auto px-4 py-6">
+      <h1 className="text-2xl md:text-3xl mb-6 font-bold">Latest Furniture</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {Products.map((product) => (
-          <div key={product._id} className="border rounded shadow p-4">
-            <Link to={`/product/${product._id}`}>
-              <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover" />
+          <div key={product._id} className="border rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+            <Link to={`/product/${product._id}`} className="block aspect-w-16 aspect-h-9">
+              <img 
+                src={product.imageUrl} 
+                alt={product.name} 
+                className="w-full h-48 object-cover rounded-t-lg"
+              />
             </Link>
-            <h2 className="mt-2 font-bold">{product.name}</h2>
-            <p className="mt-1">${product.price}</p>
-            <Link to={`/product/${product._id}`} className="text-blue-500 hover:underline mt-2 inline-block">
-              View Details
-            </Link>
+            <div className="p-4">
+              <h2 className="text-lg md:text-xl font-semibold">{product.name}</h2>
+              <p className="text-gray-600 mt-1">${product.price}</p>
+              <Link 
+                to={`/product/${product._id}`} 
+                className="mt-3 inline-block text-blue-600 hover:text-blue-800 transition-colors duration-200"
+              >
+                View Details
+              </Link>
+            </div>
           </div>
         ))}
       </div>
     </div>
   );
 };
-
 // Product Details Page
 const ProductDetails = () => {
   const { id } = useParams();
   const userId = localStorage.getItem('userId');
   const [fetchedproduct, setProduct] = useState(null);
-  const { enqueueSnackbar } = useSnackbar(); 
+  const { enqueueSnackbar } = useSnackbar();
   
   useEffect(() => {
     const fetchProducts = async () => {
@@ -110,47 +185,72 @@ const ProductDetails = () => {
   }, [id]);
 
   const addToCart = () => {
-    console.log('Adding to cart:', { userId, productId: fetchedproduct._id, quantity: 1 });
+    if (!userId) {
+      enqueueSnackbar("Please log in first.", {variant: 'error'});
+      return;
+    }
+    
     axios.post("http://localhost:5000/api/cart", {
       userId,
       productId: fetchedproduct._id,
       quantity: 1
     })
     .then(response => {
-      console.log('Added to cart:', response.data);
-      enqueueSnackbar('Added to cart successfully',{variant:'success'});
+      enqueueSnackbar('Added to cart successfully', {variant:'success'});
     })
-    .catch(error => console.error("Error adding to cart:", error));
+    .catch(error => {
+      enqueueSnackbar('Error adding to cart', {variant:'error'});
+    });
   }
 
-  if (!fetchedproduct) return <p className="p-4">Product not found</p>;
+  if (!fetchedproduct) return (
+    <div className="flex justify-center items-center min-h-screen">
+      <p className="text-lg">Loading...</p>
+    </div>
+  );
 
   return (
-    <div className="container mx-auto p-4">
-      <Link to="/" className="text-blue-500 hover:underline">Go Back</Link>
-      <div className="flex flex-col lg:flex-row mt-4">
-        <img src={fetchedproduct.imageUrl} alt={fetchedproduct.name} className="w-full lg:w-1/2 object-cover" />
-        <div className="lg:ml-8 mt-4 lg:mt-0">
-          <h2 className="text-3xl font-bold">{fetchedproduct.name}</h2>
-          <p className="text-xl my-2">${fetchedproduct.price}</p>
-          <p>{fetchedproduct.description}</p>
-          <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded" onClick={addToCart}>Add to Cart</button>
+    <div className="container mx-auto px-4 py-6">
+      <Link to="/" className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6">
+        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Products
+      </Link>
+      
+      <div className="flex flex-col lg:flex-row gap-8">
+        <div className="w-full lg:w-1/2">
+          <img 
+            src={fetchedproduct.imageUrl} 
+            alt={fetchedproduct.name} 
+            className="w-full h-auto rounded-lg shadow-md"
+          />
+        </div>
+        
+        <div className="w-full lg:w-1/2">
+          <h2 className="text-2xl md:text-3xl font-bold mb-4">{fetchedproduct.name}</h2>
+          <p className="text-xl md:text-2xl text-gray-800 mb-4">${fetchedproduct.price}</p>
+          <p className="text-gray-600 mb-6">{fetchedproduct.description}</p>
+          <button 
+            className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            onClick={addToCart}
+          >
+            Add to Cart
+          </button>
         </div>
       </div>
     </div>
   );
 };
-
 // Cart Page
 const Cart = () => {
-  const [cart, setCart] = React.useState({ items: [] }); // Initialize with proper structure
-  const [loading, setLoading] = React.useState(true);    // Add loading state
-  const [error, setError] = React.useState(null);        // Add error state
+  const [cart, setCart] = useState({ items: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const storedUserId = localStorage.getItem('userId');
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
 
-  // Updated cart fetching with proper error handling
   useEffect(() => {
     if (!storedUserId) {
       setError("Please login to view your cart");
@@ -161,24 +261,20 @@ const Cart = () => {
     setLoading(true);
     axios.get(`http://localhost:5000/api/cart/${storedUserId}`)
       .then(response => {
-        console.log('Fetched cart:', response.data);
-        setCart(response.data || { items: [] }); // Ensure we always have a valid structure
+        setCart(response.data || { items: [] });
         setLoading(false);
       })
       .catch(error => {
-        console.error("Error fetching cart:", error);
         setError("Failed to load cart items");
         setLoading(false);
       });
   }, [storedUserId]);
 
-  // Updated remove item function with error handling and guard check for userId
   const removeFromCart = (productId) => {
     if (!storedUserId) {
-      enqueueSnackbar("Please log in to remove items from your cart",{variant:'error'});
+      enqueueSnackbar("Please log in to remove items from your cart", {variant:'error'});
       return;
     }
-    if (!productId) return;
 
     setLoading(true);
     axios.delete(`http://localhost:5000/api/cart/${storedUserId}/${productId}`)
@@ -187,15 +283,14 @@ const Cart = () => {
         setLoading(false);
       })
       .catch(error => {
-        console.error("Error removing item:", error);
-        enqueueSnackbar("Failed to remove item",{variant:'error'});
+        enqueueSnackbar("Failed to remove item", {variant:'error'});
         setLoading(false);
       });
   };
 
   const updateCart = (productId, newQuantity) => {
     if (!storedUserId) {
-      enqueueSnackbar("Please log in to modify your cart",{variant:'error'});
+      enqueueSnackbar("Please log in to modify your cart", {variant:'error'});
       return;
     }
   
@@ -211,70 +306,89 @@ const Cart = () => {
         setLoading(false);
       })
       .catch(error => {
-        console.error("Error updating quantity:", error);
-        enqueueSnackbar("Failed to update quantity",{variant:'error'});
+        enqueueSnackbar("Failed to update quantity", {variant:'error'});
         setLoading(false);
-      });
+      });
   };
 
-  if (loading) return <div className="p-6">Loading cart...</div>;
-  if (error) return <div className="p-6 text-red-500">{error}</div>;
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-screen">
+      <p className="text-lg">Loading cart...</p>
+    </div>
+  );
+  
+  if (error) return (
+    <div className="p-6 flex justify-center items-center min-h-screen">
+      <p className="text-red-500 text-lg">{error}</p>
+    </div>
+  );
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold">Your Cart</h2>
+    <div className="container mx-auto px-4 py-6">
+      <h2 className="text-2xl md:text-3xl font-bold mb-6">Your Cart</h2>
+      
       {(!cart?.items || cart.items.length === 0) ? (
-        <p>Your cart is empty.</p>
+        <div className="text-center py-8">
+          <p className="text-gray-600 mb-4">Your cart is empty.</p>
+          <Link 
+            to="/" 
+            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+          >
+            Continue Shopping
+          </Link>
+        </div>
       ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 mt-4">
-
-            {cart.items.map((item) => (
-  <div key={item.productId} className="flex justify-between p-4 border rounded">
-      <img src={item.imageUrl}  className="w-20 md:w-32 h-20 md:h-32 object-cover rounded-lg shadow-md"/>
-    <div className="flex flex-col justify-center col-span-2">
-      <div className="text-xs sm:text-sm md:text-lg font-bold">{item.name}</div>
-      <div className="text-[10px] sm:text-xs md:text-base">${item.price} x {item.quantity}</div>
-    </div>
-    <div className="flex items-center space-x-2 mt-2 md:mt-0">
-      <button
-        className="px-2 py-1 bg-gray-300 rounded"
-        onClick={() => updateCart(item.productId, item.quantity - 1)}
-      >
-        -
-      </button>
-      <span className="mx-2">{item.quantity}</span>
-      <button
-        className="px-2 py-1 bg-gray-300 rounded"
-        onClick={() => updateCart(item.productId, item.quantity + 1)}
-      >
-        +
-      </button>
-      <button
-        className="ml-4 bg-red-500 text-white px-3 py-1 rounded"
-        onClick={() => removeFromCart(item.productId)}
-      >
-        Remove
-      </button>
-    </div>
-  </div>
-))}
-
-          </div>
-          <div className="mt-6 flex justify-end">
+        <div className="space-y-4">
+          {cart.items.map((item) => (
+            <div key={item.productId} className="flex flex-col sm:flex-row items-center gap-4 p-4 border rounded-lg shadow-sm">
+              <img 
+                src={item.imageUrl}  
+                className="w-32 h-32 object-cover rounded-lg shadow-md"
+                alt={item.name}
+              />
+              
+              <div className="flex-grow text-center sm:text-left">
+                <h3 className="text-lg font-semibold">{item.name}</h3>
+                <p className="text-gray-600">${item.price} x {item.quantity}</p>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full hover:bg-gray-300 transition-colors duration-200"
+                  onClick={() => updateCart(item.productId, item.quantity - 1)}
+                >
+                  -
+                </button>
+                <span className="w-8 text-center">{item.quantity}</span>
+                <button
+                  className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full hover:bg-gray-300 transition-colors duration-200"
+                  onClick={() => updateCart(item.productId, item.quantity + 1)}
+                >
+                  +
+                </button>
+                <button
+                  className="ml-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200"
+                  onClick={() => removeFromCart(item.productId)}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+          
+          <div className="mt-8 flex justify-end">
             <button
-              className="px-6 py-2 bg-blue-600 text-white rounded"
+              className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
               onClick={() => navigate('/checkout')}
             >
               Proceed to Checkout
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
 };
-
 // Checkout Page
 const Checkout = () => {
   const navigate = useNavigate();
