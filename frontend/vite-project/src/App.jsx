@@ -2,34 +2,53 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useSnackbar , SnackbarProvider, enqueueSnackbar} from 'notistack';
 
 
 // Header Component
 const Header = () => {
   const navigate = useNavigate();
   const userId = localStorage.getItem('userId');
+  const token = localStorage.getItem('token');
+  const { enqueueSnackbar } = useSnackbar();
+  
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    enqueueSnackbar("Logged out successfully", { variant: "success" });
+    navigate('/login');
+  };
 
-  return(
-  <header className="bg-gray-800 text-white p-4 flex justify-between items-center">
-    <Link to="/" className="text-2xl font-bold">Furniture Store</Link>
-    <nav>
-    <button
-  onClick={() => {
-    if (userId) {
-      navigate(`/cart/${userId}`);
-    } else {
-      alert("Please log in first.");
-      navigate("/login");
-    }
-  }}
-  className="mx-2"
->
-  Cart
-</button>
-      <Link to="/login" className="mx-2">Login</Link>
-      <Link to="/register" className="mx-2">Register</Link>
-    </nav>
-  </header>
+
+  return (
+    <header className="bg-gray-800 text-white p-4 flex justify-between items-center">
+      <Link to="/" className="text-2xl font-bold">Furniture Store</Link>
+      <nav>
+        <button
+          onClick={() => {
+            if (userId) {
+              navigate(`/cart/${userId}`);
+            } else {
+              enqueueSnackbar("Please log in first.",{variant: 'error'});
+              navigate("/login");
+            }
+          }}
+          className="mx-2"
+        >
+        Cart
+        </button>
+        {token ? (
+          <button onClick={handleLogout} className="mx-2">
+            Logout         
+           </button>
+        ) : (
+          <>
+            <Link to="/login" className="mx-2">Login</Link>
+            <Link to="/register" className="mx-2">Register</Link>
+          </>
+        )}
+      </nav>
+    </header>
   );
 };
 
@@ -74,7 +93,8 @@ const Home = () => {
 const ProductDetails = () => {
   const { id } = useParams();
   const userId = localStorage.getItem('userId');
-  const [fetchedproduct, setProduct] = useState(null); 
+  const [fetchedproduct, setProduct] = useState(null);
+  const { enqueueSnackbar } = useSnackbar(); 
   
   useEffect(() => {
     const fetchProducts = async () => {
@@ -98,9 +118,9 @@ const ProductDetails = () => {
     })
     .then(response => {
       console.log('Added to cart:', response.data);
-      alert('Added to cart successfully');
+      enqueueSnackbar('Added to cart successfully',{variant:'success'});
     })
-      .catch(error => console.error("Error adding to cart:", error));
+    .catch(error => console.error("Error adding to cart:", error));
   }
 
   if (!fetchedproduct) return <p className="p-4">Product not found</p>;
@@ -123,14 +143,15 @@ const ProductDetails = () => {
 
 // Cart Page
 const Cart = () => {
-  const [cart, setCart] = React.useState({ items: [] }); // 🔍 Initialize with proper structure
-  const [loading, setLoading] = React.useState(true);    // 🔍 Add loading state
-  const [error, setError] = React.useState(null);        // 🔍 Add error state
-  const userId = localStorage.getItem('userId');
+  const [cart, setCart] = React.useState({ items: [] }); // Initialize with proper structure
+  const [loading, setLoading] = React.useState(true);    // Add loading state
+  const [error, setError] = React.useState(null);        // Add error state
+  const storedUserId = localStorage.getItem('userId');
+  const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
 
-  // 🔍 Updated cart fetching with proper error handling
+  // Updated cart fetching with proper error handling
   useEffect(() => {
-    const storedUserId = localStorage.getItem('userId');
     if (!storedUserId) {
       setError("Please login to view your cart");
       setLoading(false);
@@ -138,10 +159,10 @@ const Cart = () => {
     }
 
     setLoading(true);
-    axios.get(`http://localhost:5000/api/cart/${userId}`)
+    axios.get(`http://localhost:5000/api/cart/${storedUserId}`)
       .then(response => {
         console.log('Fetched cart:', response.data);
-        setCart(response.data || { items: [] }); // 🔍 Ensure we always have a valid structure
+        setCart(response.data || { items: [] }); // Ensure we always have a valid structure
         setLoading(false);
       })
       .catch(error => {
@@ -149,23 +170,51 @@ const Cart = () => {
         setError("Failed to load cart items");
         setLoading(false);
       });
-  }, [userId]);
+  }, [storedUserId]);
 
-  // 🔍 Updated remove item function with error handling
+  // Updated remove item function with error handling and guard check for userId
   const removeFromCart = (productId) => {
-    if (!userId || !productId) return;
+    if (!storedUserId) {
+      enqueueSnackbar("Please log in to remove items from your cart",{variant:'error'});
+      return;
+    }
+    if (!productId) return;
 
     setLoading(true);
-    axios.delete(`http://localhost:5000/api/cart/${userId}/${productId}`)
+    axios.delete(`http://localhost:5000/api/cart/${storedUserId}/${productId}`)
       .then(response => {
         setCart(response.data || { items: [] });
         setLoading(false);
       })
       .catch(error => {
         console.error("Error removing item:", error);
-        setError("Failed to remove item");
+        enqueueSnackbar("Failed to remove item",{variant:'error'});
         setLoading(false);
       });
+  };
+
+  const updateCart = (productId, newQuantity) => {
+    if (!storedUserId) {
+      enqueueSnackbar("Please log in to modify your cart",{variant:'error'});
+      return;
+    }
+  
+    if (newQuantity < 1) {
+      removeFromCart(productId);
+      return;
+    }
+  
+    setLoading(true);
+    axios.put(`http://localhost:5000/api/cart/${storedUserId}/${productId}`, { quantity: newQuantity })
+      .then(response => {
+        setCart(response.data || { items: [] });
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error("Error updating quantity:", error);
+        enqueueSnackbar("Failed to update quantity",{variant:'error'});
+        setLoading(false);
+      });
   };
 
   if (loading) return <div className="p-6">Loading cart...</div>;
@@ -174,30 +223,57 @@ const Cart = () => {
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold">Your Cart</h2>
-      {(!cart?.items || cart.items.length === 0) ? ( // 🔍 Safe access with optional chaining
+      {(!cart?.items || cart.items.length === 0) ? (
         <p>Your cart is empty.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {cart.items.map((item) => (
-            <div key={item.productId} className="flex justify-between p-4 border rounded">
-              <div>
-                <h3 className="text-lg font-bold">{item.name}</h3>
-                <p>${item.price} x {item.quantity}</p>
-              </div>
-              <button
-                className="bg-red-500 text-white px-3 py-1 rounded"
-                onClick={() => removeFromCart(item.productId)}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 mt-4">
+
+            {cart.items.map((item) => (
+  <div key={item.productId} className="flex justify-between p-4 border rounded">
+      <img src={item.imageUrl}  className="w-20 md:w-32 h-20 md:h-32 object-cover rounded-lg shadow-md"/>
+    <div className="flex flex-col justify-center col-span-2">
+      <div className="text-xs sm:text-sm md:text-lg font-bold">{item.name}</div>
+      <div className="text-[10px] sm:text-xs md:text-base">${item.price} x {item.quantity}</div>
+    </div>
+    <div className="flex items-center space-x-2 mt-2 md:mt-0">
+      <button
+        className="px-2 py-1 bg-gray-300 rounded"
+        onClick={() => updateCart(item.productId, item.quantity - 1)}
+      >
+        -
+      </button>
+      <span className="mx-2">{item.quantity}</span>
+      <button
+        className="px-2 py-1 bg-gray-300 rounded"
+        onClick={() => updateCart(item.productId, item.quantity + 1)}
+      >
+        +
+      </button>
+      <button
+        className="ml-4 bg-red-500 text-white px-3 py-1 rounded"
+        onClick={() => removeFromCart(item.productId)}
+      >
+        Remove
+      </button>
+    </div>
+  </div>
+))}
+
+          </div>
+          <div className="mt-6 flex justify-end">
+            <button
+              className="px-6 py-2 bg-blue-600 text-white rounded"
+              onClick={() => navigate('/checkout')}
+            >
+              Proceed to Checkout
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
 };
-
 
 // Checkout Page
 const Checkout = () => {
@@ -205,54 +281,80 @@ const Checkout = () => {
   const userId = localStorage.getItem('userId');
   const [cart, setCart] = useState([]);
   const totalAmount = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const { enqueueSnackbar } = useSnackbar();
 
   useEffect(() => {
     axios.get(`http://localhost:5000/api/cart/${userId}`)
       .then(response => setCart(response.data.items))
       .catch(error => console.error("Error fetching cart:", error));
-  }, []);
+  }, [userId]);
 
   const handleOrderPlacement = () => {
-    axios.post('http://localhost:5000/api/orders', { userId, items: cart, totalAmount })
+    axios.post('http://localhost:5000/api/orders', { userId, items: cart, totalAmount, cart })
       .then(() => {
-        alert('Order Placed Successfully!');
+        enqueueSnackbar('Order Placed Successfully!', {variant: 'success'});
+        // setCart([]);
         navigate('/');
       })
       .catch(error => console.error("Error placing order:", error));
   };
 
   return (
-    <div className="p-6 text-center">
-      <h2 className="text-2xl font-bold">Checkout</h2>
-      <button onClick={handleOrderPlacement} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded">Place Order</button>
+    <div className="container mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-4">Checkout</h2>
+      {cart.length === 0 ? (
+        <p>Your cart is empty.</p>
+      ) : (
+        <>
+          <div className="mb-4">
+            {cart.map((item) => (
+              <div key={item.productId} className="flex justify-between border-b py-2">
+                <div className="w-1/3 font-medium">{item.name}</div>
+                <div className="w-1/3 text-center">{item.quantity} x ${item.price}</div>
+                <div className="w-1/3 text-right">
+                  ${ (item.quantity * item.price).toFixed(2) }
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-right font-bold text-lg mb-4">
+            Total Amount: ${totalAmount.toFixed(2)}
+          </div>
+          <div className="text-center">
+            <button 
+              onClick={handleOrderPlacement} 
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
+            >
+              Place Order
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };
-
-
 // Login Page
 const Login = () => {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try{
       const response = await axios.post('http://localhost:5000/api/auth/login', { email, password });
       if (response.data.flag === "0") {
-        console.log('User not found');
-        alert('User not found');
+        enqueueSnackbar('User not found', {variant: 'error'});
       } else if (response.data.flag === "1") {
-        alert('Invalid credentials');
+        enqueueSnackbar('Invalid credentials', {variant: 'error'});
       } else {
         localStorage.setItem('token', response.data.token);
-        localStorage.setItem('userId', response.data.userId);
-        alert('Login successful');
+        localStorage.setItem('userId', response.data.user.id); // Ensure correct property
+        enqueueSnackbar('Login successful', {variant: 'success'});
         navigate('/');
       }
       console.log('Login response:', response.data);
-
     } catch (error) {
       console.error('Login error:', error);
     }
@@ -273,15 +375,7 @@ const Login = () => {
         <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded">Login</button>
       </form>
       <p className="mt-4">New customer? <Link to="/register" className="text-blue-500 hover:underline">Register</Link></p>
-      {/* breadcrumb for successful  */}
-      <div class="flex items-center space-x-2 bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-md">
-        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
-        </svg>
-        <span class="font-medium">Login successful!</span>
-      </div>
     </div>
-    
   );
 };
 
@@ -291,17 +385,20 @@ const Register = () => {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const response = await axios.post('http://localhost:5000/api/auth/register', { name, email, password });
       console.log('Registration response:', response.data);
-    navigate('/login');
-  } catch (error) {
-    console.error('Registration error:', error);
-  }
-};
+      enqueueSnackbar('Registration successful', {variant: 'success'});
+      navigate('/login');
+    } catch (error) {
+      enqueueSnackbar('User already exist', {variant: 'warning'});
+      console.error('Registration error:', error);
+    }
+  };
 
   return (
     <div className="container mx-auto p-4 max-w-md">
@@ -329,6 +426,7 @@ const Register = () => {
 // Main App Component
 const App = () => (
   <BrowserRouter>
+    <SnackbarProvider maxSnack={3}>
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow">
@@ -343,6 +441,7 @@ const App = () => (
       </main>
       <Footer />
     </div>
+    </SnackbarProvider>
   </BrowserRouter>
 );
 
